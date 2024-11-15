@@ -1,0 +1,112 @@
+---
+title: "p8105_hw5_ek3376"
+author: "ek3376"
+date: "2024-11-15"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r library}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(rvest)
+library(broom)
+```
+
+## Problem 1
+
+```{r}
+set.seed(1)
+
+birthday_duplicates = function(birthday) {
+  birthdays <- sample(1:365, x, replace = TRUE)
+  if (length(unique(birthdays)) < length(birthdays)) {
+    return(TRUE)
+  }
+    else {
+    return(FALSE)  
+  }
+}
+```
+
+
+## Problem 2
+
+Below we define a simulation function for exploring the power of a one-sample t-test. We observe the associated power of mu values 0 through 6.
+
+```{r}
+set.seed(12)
+
+n <- 30
+sigma <- 5
+alpha <- 0.05
+nsim <- 5000
+mu_values = 0:6
+
+
+power_sim <- function(n, mu, sigma) {
+  mu_hat <- numeric(nsim)
+  p_value <- numeric(nsim)
+  for (i in 1:nsim) {
+    data <- rnorm(n, mean = mu, sd = sigma)
+    t_test_result <- t.test(data, mu = 0)
+    tidy_result <- broom::tidy(t_test_result) 
+    mu_hat[i] <- tidy_result$estimate
+    p_value[i] <- tidy_result$p.value
+  }
+  results <- tibble(mu_hat = mu_hat, p_value = p_value)
+  return(results)
+}
+
+power_results <- numeric(length(mu_values))
+avg_mu_hat <- numeric(length(mu_values))
+avg_mu_hat_reject <- numeric(length(mu_values))
+
+for (i in 1:length(mu_values)) {
+  mu <- mu_values[i]
+  results <- power_sim(n = n, mu = mu, sigma = sigma)
+  power_results[i] <- mean(results$p_value < alpha)
+  avg_mu_hat[i] <- mean(results$mu_hat)
+  avg_mu_hat_reject[i] <- mean(results$mu_hat[results$p_value < alpha])
+}
+
+results <- tibble(
+  mu_values = mu_values, 
+  power = power_results,
+  avg_mu_hat = avg_mu_hat,
+  avg_mu_hat_reject = avg_mu_hat_reject
+)
+```
+
+Below we plot the results of the proportion of times null was rejected versus the true value of mu. Based on the plot, the power of the test increases as the true value of mu increases, with a plateau/level off at mu values 5 and 6 as the power has reached 1.
+
+```{r}
+ggplot(results, aes(x = mu_values, y = power)) + 
+  geom_line() + geom_point() + labs(
+    title = "Proportion of Null Rejections vs. True Value of Mu"
+  ) 
+```
+
+Below we plot the average estimate of mu hat versus the true value of mu. Additionally, we make a second plot overlayed showing the average estimate of mu hat only in samples for which the null was rejected versus the true value of mu. Based on the plots, the sample average of mu hat across all tests is equal to the true value of mu. On the other hand, the sample average of mu hat across tests for which the null is rejected is not equal to the true value of mu. The estimated mu hat is larger than the true value of mu for mu greater than 0 and this difference levels off for larger values of mu until mu = 6. This difference is the result of bias since we are selecting samples where mu hat was farther from 0 skewing the avergae of mu hat. 
+
+```{r}
+ggplot(results, aes(x = mu_values)) + 
+  geom_line(aes(y = avg_mu_hat, color = "All")) + 
+  geom_point(aes(y = avg_mu_hat, color = "All")) + 
+  geom_line(aes(y = avg_mu_hat_reject, color = "Rejected")) + 
+  geom_point(aes(y = avg_mu_hat_reject, color = "Rejected")) + 
+  labs(
+    title = "Average Estimate of Mu hat vs. True Value of Mu",
+    x = "True Value of Mu",
+    y = "Average Estimate of Mu hat",
+    color = "Sample"
+  )
+
+```
+
+## Question 3
